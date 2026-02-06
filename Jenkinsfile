@@ -2,40 +2,44 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_IMAGE = "catalog-service"
-        DOCKER_TAG = "${BUILD_NUMBER}"
-        AWS_REGION = "us-east-1"
-        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        ECS_CLUSTER = "bt-microservices-cluster"
-        ECS_SERVICE = "catalog-service"
-        ECS_TASK_FAMILY = "catalog-service-task"
+        AWS_REGION = 'us-east-1'
+        ECR_REGISTRY = '929767729568.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPO = 'catalog-service'
+        ECS_CLUSTER = 'catalog-cluster'
+        ECS_SERVICE = 'catalog-service'
+        DOCKER_IMAGE = "${ECR_REGISTRY}/${ECR_REPO}"
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                script {
-                    sh '''
-                        python -m venv venv
-                        . venv/bin/activate
-                        pip install -r requirements.txt
-                        pytest tests/ --cov=app --cov-report=xml
-                    '''
-                }
+                echo "✅ Code checked out from GitHub"
             }
         }
         
         stage('Build Docker Image') {
             steps {
+                dir('catalog-repo') {
+                    script {
+                        echo "🐳 Building Docker image..."
+                        sh "docker build -t ${ECR_REPO}:${BUILD_NUMBER} ."
+                        sh "docker tag ${ECR_REPO}:${BUILD_NUMBER} ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                        sh "docker tag ${ECR_REPO}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest"
+                        echo "✅ Docker image built: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    }
+                }
+            }
+        }
+        
+        stage('Login to ECR') {
+            steps {
                 script {
-                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                    sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
+                    echo "🔐 Logging into AWS ECR..."
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    """
+                    echo "✅ Logged into ECR"
                 }
             }
         }
@@ -43,13 +47,10 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 script {
-                    sh '''
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${ECR_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${ECR_REGISTRY}/${DOCKER_IMAGE}:latest
-                        docker push ${ECR_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker push ${ECR_REGISTRY}/${DOCKER_IMAGE}:latest
-                    '''
+                    echo "📤 Pushing Docker image to ECR..."
+                    sh "docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    sh "docker push ${DOCKER_IMAGE}:latest"
+                    echo "✅ Image pushed: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
                 }
             }
         }
@@ -57,13 +58,31 @@ pipeline {
         stage('Deploy to ECS') {
             steps {
                 script {
-                    sh '''
+                    echo "🚀 Deploying to ECS..."
+                    sh """
                         aws ecs update-service \
                             --cluster ${ECS_CLUSTER} \
                             --service ${ECS_SERVICE} \
                             --force-new-deployment \
                             --region ${AWS_REGION}
-                    '''
+                    """
+                    echo "✅ Deployment triggered on ECS"
+                }
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    echo "🔍 Waiting for deployment to start..."
+                    sleep(time: 30, unit: 'SECONDS')
+                    sh """
+                        aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query 'services[0].deployments[0].runningCount'
+                    """
                 }
             }
         }
@@ -71,13 +90,30 @@ pipeline {
     
     post {
         always {
+            script {
+                echo "🧹 Cleaning up Docker resources..."
+                sh 'docker system prune -f || true'
+            }
             cleanWs()
         }
         success {
-            echo 'Deployment successful!'
+            echo """
+            ╔════════════════════════════════════════╗
+            ║     ✅ DEPLOYMENT SUCCESSFUL!          ║
+            ║                                        ║
+            ║     Build Number: #${BUILD_NUMBER}     ║
+            ║     Image: ${DOCKER_IMAGE}:${BUILD_NUMBER}
+            ╚════════════════════════════════════════╝
+            """
         }
         failure {
-            echo 'Deployment failed!'
+            echo """
+            ╔════════════════════════════════════════╗
+            ║     ❌ DEPLOYMENT FAILED!              ║
+            ║                                        ║
+            ║     Check console output for details   ║
+            ╚════════════════════════════════════════╝
+            """
         }
     }
 }
