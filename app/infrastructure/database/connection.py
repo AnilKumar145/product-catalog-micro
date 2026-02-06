@@ -40,16 +40,25 @@ class Database:
     
     async def fetch_all(self, query: str, *args):
         """Execute query and fetch all results."""
+        if self.pool is None:
+            logger.warning("Database pool not available. Returning empty result.")
+            return []
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, *args)
     
     async def fetch_one(self, query: str, *args):
         """Execute query and fetch one result."""
+        if self.pool is None:
+            logger.warning("Database pool not available. Returning None.")
+            return None
         async with self.pool.acquire() as conn:
             return await conn.fetchrow(query, *args)
     
     async def execute(self, query: str, *args):
         """Execute query without returning results."""
+        if self.pool is None:
+            logger.warning("Database pool not available. Skipping query execution.")
+            return None
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
 

@@ -2,11 +2,13 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Product(BaseModel):
     """Product model representing catalog items."""
+    
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
     
     id: Optional[int] = None
     name: str

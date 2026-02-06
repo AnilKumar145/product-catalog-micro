@@ -1,7 +1,7 @@
 """Common schemas used across the application."""
 
 from typing import Generic, TypeVar, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 T = TypeVar('T')
@@ -9,6 +9,8 @@ T = TypeVar('T')
 
 class PaginatedResponse(BaseModel, Generic[T]):
     """Generic paginated response schema."""
+    model_config = ConfigDict(from_attributes=True)
+    
     items: List[T]
     total: int
     page: int

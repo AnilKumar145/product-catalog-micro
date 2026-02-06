@@ -127,6 +127,19 @@ class ProductRepository:
         count_query = f"SELECT COUNT(*) FROM products WHERE {where_clause}"
         total = await self.db.fetch_one(count_query, *params)
         
+        # Fallback to in-memory data if DB unavailable
+        if total is None:
+            filtered = FALLBACK_PRODUCTS
+            if product_type:
+                filtered = [p for p in filtered if p.product_type == product_type]
+            if business_unit:
+                filtered = [p for p in filtered if p.business_unit == business_unit]
+            if location:
+                filtered = [p for p in filtered if p.location == location]
+            if category:
+                filtered = [p for p in filtered if p.category == category]
+            return filtered, len(filtered)
+        
         offset = (page - 1) * page_size
         query = f"""
             SELECT * FROM products 
@@ -137,7 +150,7 @@ class ProductRepository:
         params.extend([page_size, offset])
         
         rows = await self.db.fetch_all(query, *params)
-        products = [Product(**dict(row)) for row in rows]
+        products = [Product(**{k: v for k, v in row.items()}) for row in rows]
         
         return products, total['count']
     
@@ -149,7 +162,7 @@ class ProductRepository:
         if not row:
             raise ProductNotFoundException(product_id)
         
-        return Product(**dict(row))
+        return Product(**{k: v for k, v in row.items()})
     
     async def create(self, product: Product) -> Product:
         """Create a new product."""
@@ -171,7 +184,7 @@ class ProductRepository:
             product.product_type,
             product.is_available
         )
-        return Product(**dict(row))
+        return Product(**{k: v for k, v in row.items()})
     
     async def update_price(self, product_id: int, price: float) -> Product:
         """Update product price."""
@@ -186,7 +199,7 @@ class ProductRepository:
         if not row:
             raise ProductNotFoundException(product_id)
         
-        return Product(**dict(row))
+        return Product(**{k: v for k, v in row.items()})
     
     async def update_availability(self, product_id: int, is_available: bool) -> Product:
         """Update product availability."""
@@ -201,7 +214,7 @@ class ProductRepository:
         if not row:
             raise ProductNotFoundException(product_id)
         
-        return Product(**dict(row))
+        return Product(**{k: v for k, v in row.items()})
     
     async def delete(self, product_id: int) -> None:
         """Delete a product."""

@@ -1,0 +1,61 @@
+services:
+  catalog-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=Catalog Service
+      - APP_VERSION=1.0.0
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/catalog_db
+      - JWT_SECRET_KEY=local-dev-secret-key
+      - JWT_ALGORITHM=HS256
+      - AUTH_SERVICE_URL=http://localhost:8001/api/v1/auth
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RATE_LIMIT_PER_MINUTE=60
+      - LOG_LEVEL=INFO
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - microservices
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=catalog_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - microservices
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - microservices
+
+volumes:
+  postgres_data:
+
+networks:
+  microservices:
+    driver: bridge

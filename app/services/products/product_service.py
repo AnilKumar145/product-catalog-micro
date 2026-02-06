@@ -30,7 +30,7 @@ class ProductService:
         
         cached = await self.cache.get(cache_key)
         if cached:
-            return cached['items'], cached['total']
+            return [Product(**item) for item in cached['items']], cached['total']
         
         products, total = await self.repository.get_all(
             product_type=product_type,
@@ -42,7 +42,7 @@ class ProductService:
             page_size=page_size
         )
         
-        await self.cache.set(cache_key, {'items': products, 'total': total}, ttl=300)
+        await self.cache.set(cache_key, {'items': [p.model_dump() for p in products], 'total': total}, ttl=300)
         return products, total
     
     async def get_product_by_id(self, product_id: int) -> Product:

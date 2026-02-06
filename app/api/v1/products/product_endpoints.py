@@ -50,13 +50,13 @@ async def get_all_products(
     
     total_pages = (total + page_size - 1) // page_size
     
-    return PaginatedResponse(
-        items=products,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
-    )
+    return {
+        "items": [p.model_dump() for p in products],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages
+    }
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
