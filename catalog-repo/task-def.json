@@ -1,0 +1,89 @@
+{
+    "family": "catalog-service-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::929767729568:role/ecsTaskExecutionRole",
+    "containerDefinitions": [
+        {
+            "name": "catalog-service",
+            "image": "929767729568.dkr.ecr.us-east-1.amazonaws.com/catalog-service:latest",
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "APP_NAME",
+                    "value": "Catalog Service"
+                },
+                {
+                    "name": "APP_VERSION",
+                    "value": "1.0.0"
+                },
+                {
+                    "name": "APP_DESCRIPTION",
+                    "value": "Enterprise catalog service"
+                },
+                {
+                    "name": "LOG_LEVEL",
+                    "value": "INFO"
+                },
+                {
+                    "name": "DATABASE_URL",
+                    "value": "postgresql://postgres:postgres@localhost:5432/catalog_db"
+                },
+                {
+                    "name": "DATABASE_POOL_SIZE",
+                    "value": "20"
+                },
+                {
+                    "name": "JWT_SECRET_KEY",
+                    "value": "your-super-secret-key-change-in-production"
+                },
+                {
+                    "name": "JWT_ALGORITHM",
+                    "value": "HS256"
+                },
+                {
+                    "name": "AUTH_SERVICE_URL",
+                    "value": "http://localhost:8001/api/v1/auth"
+                },
+                {
+                    "name": "EXTERNAL_API_TIMEOUT",
+                    "value": "5"
+                },
+                {
+                    "name": "EXTERNAL_API_MAX_RETRIES",
+                    "value": "3"
+                },
+                {
+                    "name": "REDIS_URL",
+                    "value": "redis://localhost:6379"
+                },
+                {
+                    "name": "RABBITMQ_URL",
+                    "value": "amqp://guest:guest@localhost:5672/"
+                },
+                {
+                    "name": "RATE_LIMIT_PER_MINUTE",
+                    "value": "60"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/catalog-service",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ]
+}
